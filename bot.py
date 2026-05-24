@@ -71,7 +71,7 @@ class AssistantBot:
                 reply = "**Search results:**\n\n"
                 for r in results:
                     reply += f"- [{r['title']}]({r['url']})\n  {r['snippet']}\n\n"
-                await event.reply(reply, parse_mode="markdown")
+                await event.reply(reply, )
             else:
                 await event.reply("No results.")
             return
@@ -117,7 +117,7 @@ class AssistantBot:
         try:
             await event.reply("🤔 Thinking...")
             response = await self.ai.chat(messages)
-            await event.reply(response, parse_mode="markdown")
+            await event.reply(response, )
         except Exception as e:
             await event.reply(f"Error: {e}")
 
@@ -132,11 +132,11 @@ class AssistantBot:
                 await event.reply("Upload failed.")
                 return
             transcript = await self.ai.transcribe_audio(url)
-            await event.reply(f"**Transcript:**\n{transcript}", parse_mode="markdown")
+            await event.reply(f"**Transcript:**\n{transcript}", )
             response = await self.ai.chat([
                 {"role": "user", "content": f"Voice message transcription: {transcript}\n\nRespond to it."}
             ])
-            await event.reply(response, parse_mode="markdown")
+            await event.reply(response, )
         finally:
             if path:
                 os.unlink(path)
@@ -155,7 +155,7 @@ class AssistantBot:
             if msg.video:
                 prompt = caption or "Describe this video."
             response = await self.ai.chat_with_vision(prompt, url)
-            await event.reply(response, parse_mode="markdown")
+            await event.reply(response, )
         finally:
             if path:
                 os.unlink(path)
@@ -179,7 +179,7 @@ class AssistantBot:
                 content = content[:12000] + "\n\n...[truncated]"
             prompt = caption or f"Analyze:\n\n{content}"
             response = await self.ai.chat([{"role": "user", "content": prompt}])
-            await event.reply(response, parse_mode="markdown")
+            await event.reply(response, )
         finally:
             if path:
                 os.unlink(path)
@@ -223,4 +223,4 @@ Just send me a message and I'll respond.
 • Photo/Video → visual analysis
 • Documents → read & analyze
 """
-        await event.reply(h, parse_mode="markdown")
+        await event.reply(h, )
