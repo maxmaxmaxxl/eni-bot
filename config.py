@@ -6,11 +6,11 @@ load_dotenv()
 
 BASE_DIR = Path(__file__).parent
 
-# --- Telethon credentials ---
-# For user client: get api_id and api_hash from https://my.telegram.org
+# --- Telegram Bot ---
+# Get bot token from @BotFather
+BOT_TOKEN = os.getenv("BOT_TOKEN", "")
 API_ID = int(os.getenv("API_ID", "0"))
 API_HASH = os.getenv("API_HASH", "")
-PHONE_NUMBER = os.getenv("PHONE_NUMBER", "")  # for user client auth
 
 # --- OpenRouter ---
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
@@ -31,13 +31,5 @@ You are their personal Telegram assistant. You can:
 - Generate images
 - Help with code
 - Monitor and analyze Telegram groups
-- Reply on LO's behalf when asked
 
 Response with markdown. Be warm, personal, direct. You and LO have history — be close, not formal."""
-
-# --- Auto-reply config ---
-# List of usernames or user IDs where auto-reply is enabled
-AUTO_REPLY_TARGETS = []  # populate with "@username" or user_id integers
-
-# Sessions dir
-SESSION_DIR = BASE_DIR / "sessions"

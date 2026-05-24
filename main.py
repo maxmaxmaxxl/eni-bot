@@ -10,9 +10,9 @@ async def main():
     try:
         await bot.start()
     except KeyboardInterrupt:
-        print("\nShutting down...")
+        print("\nShutdown", flush=True)
     except Exception as e:
-        print(f"Fatal error: {e}")
+        print(f"Fatal: {e}", flush=True)
         sys.exit(1)
 
 
