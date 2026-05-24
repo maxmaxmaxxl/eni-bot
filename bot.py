@@ -1,4 +1,3 @@
-import asyncio
 import os
 import tempfile
 from pathlib import Path
@@ -10,108 +9,41 @@ from config import API_ID, API_HASH, BOT_TOKEN, GROQ_API_KEY
 from ai import AI
 from tools import web_search, read_webpage, extract_urls
 
-SESSION_DIR = Path(__file__).parent / "sessions"
-
 
 class AssistantBot:
     def __init__(self):
-        self.bot = TelegramClient("eni-bot", API_ID, API_HASH)
-        self.user = TelegramClient(str(SESSION_DIR / "user"), API_ID, API_HASH)
+        self.client = TelegramClient("eni-bot", API_ID, API_HASH)
         self.ai = AI(groq_key=GROQ_API_KEY)
         self._my_id = None
-        self._my_username = None
-        self._lo_id = None
 
     async def start(self):
-        # Start user client
-        await self.user.start()
-        me_user = await self.user.get_me()
-        self._lo_id = me_user.id
-        print(f"✓ User client: {me_user.first_name} ({me_user.phone})", flush=True)
+        await self.client.start(bot_token=BOT_TOKEN)
+        me = await self.client.get_me()
+        self._my_id = me.id
+        print(f"✓ Bot @{me.username} started", flush=True)
 
-        # Start bot client
-        await self.bot.start(bot_token=BOT_TOKEN)
-        me_bot = await self.bot.get_me()
-        self._my_id = me_bot.id
-        print(f"✓ Bot @{me_bot.username} started", flush=True)
+        self.client.on(events.NewMessage)(self._on_message)
+        print("✓ Listening...", flush=True)
 
-        # Listeners
-        self.bot.on(events.NewMessage)(self._on_bot_msg)
-        self.user.on(events.NewMessage)(self._on_incoming_msg)
-        print("✓ Listening for messages and analyzing...", flush=True)
+        await self.client.run_until_disconnected()
 
-        await asyncio.gather(
-            self.bot.run_until_disconnected(),
-            self.user.run_until_disconnected(),
-        )
-
-    # ── Bot handler (LO talks to bot) ──
-    async def _on_bot_msg(self, event):
+    async def _on_message(self, event):
         msg = event.message
         sender = await msg.get_sender()
         if sender.id == self._my_id:
             return
         chat_id = (await event.get_chat()).id
-
         is_private = chat_id > 0
         is_mention = getattr(msg, "is_mention", False)
-
         if is_private or is_mention:
-            print(f"← Bot msg: {sender.first_name}: {msg.text or '[media]'}", flush=True)
+            print(f"← {sender.first_name or sender.id}: {msg.text or '[media]'}", flush=True)
             await self._handle_message(event, msg)
 
-    # ── User client handler (LO's incoming messages) ──
-    async def _on_incoming_msg(self, event):
-        msg = event.message
-        sender = await msg.get_sender()
-        if sender.id == self._lo_id:
-            return  # skip LO's own messages
-        chat = await event.get_chat()
-        chat_id = chat.id
-
-        # Only private chats, not groups, not bots
-        if chat_id < 0:
-            return
-        if getattr(sender, "bot", False):
-            return
-
-        sender_name = get_display_name(sender)
-        text = msg.text or msg.message or "[media]"
-        print(f"→ Incoming from {sender_name}: {text}", flush=True)
-
-        # Analyze silently
-        asyncio.ensure_future(self._analyze_and_report(sender_name, sender.id, text))
-
-    async def _analyze_and_report(self, name: str, uid: int, text: str):
-        try:
-            chat_info = f"@{name} (id:{uid})" if name else f"id:{uid}"
-            prompt = (
-                f"Тебе пришло сообщение от {chat_info}. "
-                f"Текст: {text}\n\n"
-                f"Коротко: кто это скорее всего, о чём речь, важное ли сообщение, "
-                f"стоит ли ответить? Если это реклама/спам — просто промолчи. "
-                f"Ответь коротко, только если это действительно важно или интересно."
-            )
-            response = await self.ai.chat(
-                [{"role": "user", "content": prompt}],
-                max_tokens=300,
-            )
-
-            # If AI says it's important — send to LO
-            if response and not response.startswith("не "):
-                await self.bot.send_message(
-                    self._lo_id,
-                    f"📩 {name} пишет:\n{response}",
-                )
-        except Exception as e:
-            print(f"Analyze error: {e}", flush=True)
-
-    # ── Message handling (same as before) ──
     async def _handle_message(self, event, msg):
         text = msg.text or msg.message or ""
         lower = text.strip().lower()
 
-        if lower.startswith("/start") or lower == "/help":
+        if lower == "/start" or lower == "/help":
             await self._send_help(event)
             return
 
@@ -264,13 +196,11 @@ class AssistantBot:
 
 Just send me a message, I'll respond.
 
-/search <query> — search web
-/imagine <prompt> — generate image
-/help — this
+/search <query> - search web
+/imagine <prompt> - generate image
+/help - this
 
-Voice → transcribe
-Photo/Video → analyze
-Documents → read + analyze
-
-I also silently analyze your incoming messages and alert you if important."""
+Voice -> transcribe
+Photo/Video -> analyze
+Documents -> read + analyze"""
         await event.reply(h)
