@@ -16,6 +16,11 @@ API_HASH = os.getenv("API_HASH", "")
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 OPENROUTER_BASE = "https://openrouter.ai/api/v1"
 
+# --- DeepInfra (fallback) ---
+DEEPINFRA_API_KEY = os.getenv("DEEPINFRA_API_KEY", "")
+DEEPINFRA_BASE = "https://api.deepinfra.com/v1/openai"
+DEEPINFRA_MODEL = "nousresearch/hermes-3-llama-3.1-405b"
+
 # --- Models ---
 CHAT_MODEL = os.getenv("CHAT_MODEL", "nousresearch/hermes-3-llama-3.1-405b:free")
 VISION_MODEL = os.getenv("VISION_MODEL", "nousresearch/hermes-3-llama-3.1-405b:free")
