@@ -1,7 +1,12 @@
 import aiohttp
 import json
 import base64
+import random
 from typing import Optional
+
+
+class RateLimitError(Exception):
+    pass
 from config import (
     OPENROUTER_API_KEY, OPENROUTER_BASE,
     CHAT_MODEL, VISION_MODEL, IMAGE_MODEL, AUDIO_MODEL, SYSTEM_PROMPT
@@ -15,13 +20,20 @@ class OpenRouter:
             "Content-Type": "application/json",
         }
 
-    async def _post(self, endpoint: str, payload: dict) -> dict:
+    PROVIDERS = ["DeepInfra", "Venice", "Recursal", "together"]
+
+    async def _post(self, endpoint: str, payload: dict, retry_provider: bool = True) -> dict:
         url = f"{OPENROUTER_BASE}/{endpoint}"
         async with aiohttp.ClientSession(headers=self.headers) as session:
             async with session.post(url, json=payload) as resp:
                 data = await resp.json()
                 if "error" in data:
-                    raise Exception(f"OpenRouter error: {data['error']}")
+                    err = data["error"]
+                    code = err.get("code", 0)
+                    msg = err.get("message", "")
+                    if code == 429 and retry_provider:
+                        raise RateLimitError(msg)
+                    raise Exception(f"OpenRouter error: {err}")
                 return data
 
     async def chat(
@@ -35,13 +47,28 @@ class OpenRouter:
         if not messages or messages[0].get("role") != "system":
             messages = [{"role": "system", "content": SYSTEM_PROMPT}] + messages
 
-        data = await self._post("chat/completions", {
-            "model": model,
-            "messages": messages,
-            "max_tokens": max_tokens,
-            "temperature": temperature,
-        })
-        return data["choices"][0]["message"]["content"]
+        providers = self.PROVIDERS.copy()
+        last_err = None
+        for attempt in range(len(providers) + 1):
+            payload = {
+                "model": model,
+                "messages": messages,
+                "max_tokens": max_tokens,
+                "temperature": temperature,
+            }
+            if attempt > 0:
+                # try a different provider
+                provider = providers[attempt - 1]
+                payload["provider"] = {"order": [provider]}
+
+            try:
+                data = await self._post("chat/completions", payload, retry_provider=(attempt == 0))
+                return data["choices"][0]["message"]["content"]
+            except RateLimitError as e:
+                last_err = e
+                continue
+
+        raise Exception(f"All providers rate limited. Last: {last_err}")
 
     async def chat_with_vision(
         self,
@@ -50,21 +77,30 @@ class OpenRouter:
         model: Optional[str] = None,
     ) -> str:
         model = model or VISION_MODEL
-        data = await self._post("chat/completions", {
-            "model": model,
-            "messages": [
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": prompt},
-                        {"type": "image_url", "image_url": {"url": image_url}},
-                    ],
-                },
-            ],
-            "max_tokens": 2048,
-        })
-        return data["choices"][0]["message"]["content"]
+        providers = self.PROVIDERS.copy()
+        for attempt in range(len(providers) + 1):
+            payload = {
+                "model": model,
+                "messages": [
+                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": prompt},
+                            {"type": "image_url", "image_url": {"url": image_url}},
+                        ],
+                    },
+                ],
+                "max_tokens": 2048,
+            }
+            if attempt > 0:
+                payload["provider"] = {"order": [providers[attempt - 1]]}
+            try:
+                data = await self._post("chat/completions", payload, retry_provider=(attempt == 0))
+                return data["choices"][0]["message"]["content"]
+            except RateLimitError:
+                continue
+        raise Exception("All providers rate limited for vision")
 
     async def generate_image(self, prompt: str) -> str:
         data = await self._post("images/generations", {
