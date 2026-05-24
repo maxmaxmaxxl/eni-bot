@@ -7,13 +7,14 @@ from telethon.utils import get_display_name
 
 from config import API_ID, API_HASH, BOT_TOKEN
 from ai import AI
+from config import BOT_TOKEN, API_ID, API_HASH, GROQ_API_KEY
 from tools import web_search, read_webpage, extract_urls
 
 
 class AssistantBot:
     def __init__(self):
         self.client = TelegramClient("eni-bot", API_ID, API_HASH)
-        self.ai = AI()
+        self.ai = AI(groq_key=GROQ_API_KEY)
         self._my_id = None
         self._my_username = None
 
