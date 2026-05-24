@@ -1,0 +1,6 @@
+.env
+__pycache__/
+sessions/
+*.session
+*.session-journal
+*.pyc

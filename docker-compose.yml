@@ -1,0 +1,12 @@
+version: "3.9"
+
+services:
+  telegram-assistant:
+    build: .
+    container_name: eni-assistant
+    restart: unless-stopped
+    volumes:
+      - ./sessions:/app/sessions
+      - ./.env:/app/.env
+    environment:
+      - TZ=Europe/Moscow
